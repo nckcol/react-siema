@@ -34,10 +34,24 @@ class ReactSiema extends Component {
     onChange: () => {}
   };
 
-  componentDidMount() {
-    this.currentSlide = this.props.startIndex;
+  state = {
+    startPoint: {
+      x: 0,
+      y: 0
+    },
+    endPoint: {
+      x: 0,
+      y: 0
+    },
+    dragging: false,
+    width: 0,
+    current: 0
+  };
 
-    this.init();
+  componentDidMount() {
+    this.setState({
+      current: this.props.startIndex
+    });
 
     this.onResize = debounce(() => {
       this.resize();
@@ -45,53 +59,10 @@ class ReactSiema extends Component {
     }, this.props.resizeDebounce);
 
     window.addEventListener("resize", this.onResize);
-
-    if (this.props.draggable) {
-      this.pointerDown = false;
-      this.drag = {
-        start: 0,
-        end: 0
-      };
-    }
-  }
-
-  componentDidUpdate() {
-    this.init();
   }
 
   componentWillUnmount() {
     window.removeEventListener(this.onResize);
-  }
-
-  init() {
-    this.setSelectorWidth();
-    this.setInnerElements();
-    this.resolveSlidesNumber();
-
-    this.setStyle(this.sliderFrame, {
-      width: `${this.selectorWidth /
-        this.perPage *
-        this.innerElements.length}px`,
-      webkitTransition: `all ${this.props.duration}ms ${this.props.easing}`,
-      transition: `all ${this.props.duration}ms ${this.props.easing}`
-    });
-
-    for (let i = 0; i < this.innerElements.length; i++) {
-      this.setStyle(this.innerElements[i], {
-        width: `${100 / this.innerElements.length}%`
-      });
-    }
-
-    this.slideToCurrent();
-    this.props.onInit.call(this);
-  }
-
-  setSelectorWidth() {
-    this.selectorWidth = this.selector.getBoundingClientRect().width;
-  }
-
-  setInnerElements() {
-    this.innerElements = [].slice.call(this.sliderFrame.children);
   }
 
   resolveSlidesNumber() {
@@ -108,103 +79,174 @@ class ReactSiema extends Component {
   }
 
   prev() {
-    if (this.currentSlide === 0 && this.props.loop) {
-      this.currentSlide = this.innerElements.length - this.perPage;
-    } else {
-      this.currentSlide = Math.max(this.currentSlide - 1, 0);
-    }
-    this.slideToCurrent();
+    const childrenCount = Children.count(this.props.children);
+
+    this.setState(state => {
+      if (state.current === 0 && this.props.loop) {
+        return {
+          current: childrenCount - this.perPage
+        };
+      }
+
+      return {
+        current: Math.max(state.current - 1, 0)
+      };
+    });
+
     this.props.onChange.call(this);
   }
 
   next() {
-    if (
-      this.currentSlide === this.innerElements.length - this.perPage &&
-      this.props.loop
-    ) {
-      this.currentSlide = 0;
-    } else {
-      this.currentSlide = Math.min(
-        this.currentSlide + 1,
-        this.innerElements.length - this.perPage
-      );
-    }
-    this.slideToCurrent();
+    const childrenCount = Children.count(this.props.children);
+
+    this.setState(state => {
+      if (state.current === childrenCount - this.perPage && this.props.loop) {
+        return {
+          current: 0
+        };
+      }
+
+      return {
+        current: Math.min(state.current + 1, childrenCount - this.perPage)
+      };
+    });
     this.props.onChange.call(this);
   }
 
   goTo(index) {
-    this.currentSlide = Math.min(
-      Math.max(index, 0),
-      this.innerElements.length - 1
-    );
-    this.slideToCurrent();
+    const childrenCount = Children.count(this.props.children);
+    const currentSlide = Math.min(Math.max(index, 0), childrenCount - 1);
+    this.setState({
+      current: currentSlide
+    });
     this.props.onChange.call(this);
-  }
-
-  slideToCurrent() {
-    this.sliderFrame.style[transformProperty] = `translate3d(-${Math.round(
-      this.currentSlide * (this.selectorWidth / this.perPage)
-    )}px, 0, 0)`;
-  }
-
-  updateAfterDrag() {
-    const movement = this.drag.end - this.drag.start;
-    if (movement > 0 && Math.abs(movement) > this.props.threshold) {
-      this.prev();
-    } else if (movement < 0 && Math.abs(movement) > this.props.threshold) {
-      this.next();
-    }
-    this.slideToCurrent();
   }
 
   resize() {
     this.resolveSlidesNumber();
-
-    this.selectorWidth = this.selector.getBoundingClientRect().width;
-    this.setStyle(this.sliderFrame, {
-      width: `${this.selectorWidth /
-        this.perPage *
-        this.innerElements.length}px`
-    });
+    this.setSelectorWidth();
   }
 
-  clearDrag() {
-    this.drag = {
-      start: 0,
-      end: 0
+  getFrameTransition() {
+    const dragging = this.state.dragging;
+
+    const defaultTransition = `all ${this.props.duration}ms ${
+      this.props.easing
+    }`;
+    const draggingTransition = `all 0ms ${this.props.easing}`;
+    return dragging ? draggingTransition : defaultTransition;
+  }
+
+  getFrameTransform() {
+    const dragging = this.state.dragging;
+
+    const defaultTransform = `translate3d(-${Math.round(
+      this.state.current * (this.state.width / this.perPage)
+    )}px, 0, 0)`;
+
+    const draggingTransform = `translate3d(${(this.state.current *
+      (this.state.width / this.perPage) +
+      (this.state.startPoint.x - this.state.endPoint.x)) *
+      -1}px, 0, 0)`;
+
+    return dragging ? draggingTransform : defaultTransform;
+  }
+
+  getFrameStyles() {
+    const childrenCount = Children.count(this.props.children);
+    const transform = this.getFrameTransform();
+    const transition = this.getFrameTransition();
+    const dragging = this.state.dragging;
+
+    return {
+      width: `${this.state.width / this.perPage * childrenCount}px`,
+      cursor: dragging ? "-webkit-grabbing" : "-webkit-grab",
+      WebkitTransition: transition,
+      transition,
+      transform
     };
   }
 
-  setStyle(target, styles) {
-    Object.keys(styles).forEach(attribute => {
-      target.style[attribute] = styles[attribute];
-    });
+  getSlideStyles() {
+    const childrenCount = Children.count(this.props.children);
+
+    return {
+      float: "left",
+      width: `${100 / childrenCount}%`
+    };
   }
 
   render() {
+    this.resolveSlidesNumber();
+
+    const frameStyles = this.getFrameStyles();
+    const slideStyles = this.getSlideStyles();
+
     return (
       <div
-        ref={selector => (this.selector = selector)}
+        ref={this.handleSelectorRef}
         style={{ overflow: "hidden" }}
-        onTouchStart={this.handleTouchStart}
-        onTouchEnd={this.handleTouchEnd}
-        onTouchMove={this.handleTouchMove}
+        // onTouchStart={this.handleTouchStart}
+        // onTouchEnd={this.handleTouchEnd}
+        // onTouchMove={this.handleTouchMove}
         onMouseDown={this.handleMouseDown}
         onMouseUp={this.handleMouseUp}
         onMouseLeave={this.handleMouseLeave}
         onMouseMove={this.handleMouseMove}
       >
-        <div ref={sliderFrame => (this.sliderFrame = sliderFrame)}>
+        <div style={frameStyles}>
           {Children.map(this.props.children, (child, index) =>
             React.cloneElement(child, {
               key: index,
-              style: { float: "left" }
+              style: slideStyles
             })
           )}
         </div>
       </div>
     );
+  }
+
+  handleSelectorRef = element => {
+    this.selector = element;
+
+    this.setState({
+      width: this.selector.getBoundingClientRect().width
+    });
+  };
+
+  updateAfterDrag(startPoint, endPoint) {
+    const movement = endPoint.x - startPoint.x;
+
+    if (movement > 0 && movement > this.props.threshold) {
+      this.prev();
+    } else if (movement < 0 && movement < -this.props.threshold) {
+      this.next();
+    }
+  }
+
+  findCurrentSlide(startPoint, endPoint) {
+    const movement = endPoint.x - startPoint.x;
+
+    const posibbleSlideNumber =
+      this.state.current - movement / (this.state.width / this.perPage);
+    const posibbleSlideTruncated = Math.trunc(posibbleSlideNumber);
+
+    let posibbleSlide = posibbleSlideTruncated;
+
+    const diff = posibbleSlideNumber - posibbleSlideTruncated;
+
+    if ((movement < 0 && diff > 0.2) || (movement > 0 && diff > 0.8)) {
+      posibbleSlide += 1;
+    }
+
+    const childrenCount = Children.count(this.props.children);
+
+    const currentSlide = Math.min(
+      Math.max(posibbleSlide, 0),
+      childrenCount - this.perPage
+    );
+
+    return currentSlide;
   }
 
   handleTouchStart = e => {
@@ -217,7 +259,7 @@ class ReactSiema extends Component {
     e.stopPropagation();
     this.pointerDown = false;
     this.setStyle(this.sliderFrame, {
-      webkitTransition: `all ${this.props.duration}ms ${this.props.easing}`,
+      WebkitTransition: `all ${this.props.duration}ms ${this.props.easing}`,
       transition: `all ${this.props.duration}ms ${this.props.easing}`
     });
     if (this.drag.end) {
@@ -232,7 +274,7 @@ class ReactSiema extends Component {
       this.drag.end = e.touches[0].pageX;
 
       this.setStyle(this.sliderFrame, {
-        webkitTransition: `all 0ms ${this.props.easing}`,
+        WebkitTransition: `all 0ms ${this.props.easing}`,
         transition: `all 0ms ${this.props.easing}`,
         [transformProperty]: `translate3d(${(this.currentSlide *
           (this.selectorWidth / this.perPage) +
@@ -245,52 +287,71 @@ class ReactSiema extends Component {
   handleMouseDown = e => {
     e.preventDefault();
     e.stopPropagation();
-    this.pointerDown = true;
-    this.drag.start = e.pageX;
-  };
 
-  handleMouseUp = e => {
-    e.stopPropagation();
-    this.pointerDown = false;
-    this.setStyle(this.sliderFrame, {
-      cursor: "-webkit-grab",
-      webkitTransition: `all ${this.props.duration}ms ${this.props.easing}`,
-      transition: `all ${this.props.duration}ms ${this.props.easing}`
+    const point = {
+      x: e.pageX,
+      y: e.pageY
+    };
+
+    this.setState({
+      startPoint: point,
+      endPoint: point,
+      dragging: true
     });
-    if (this.drag.end) {
-      this.updateAfterDrag();
-    }
-    this.clearDrag();
-  };
-
-  handleMouseLeave = e => {
-    if (this.pointerDown) {
-      this.pointerDown = false;
-      this.drag.end = e.pageX;
-      this.setStyle(this.sliderFrame, {
-        cursor: "-webkit-grab",
-        webkitTransition: `all ${this.props.duration}ms ${this.props.easing}`,
-        transition: `all ${this.props.duration}ms ${this.props.easing}`
-      });
-      this.updateAfterDrag();
-      this.clearDrag();
-    }
   };
 
   handleMouseMove = e => {
     e.preventDefault();
-    if (this.pointerDown) {
-      this.drag.end = e.pageX;
-      this.setStyle(this.sliderFrame, {
-        cursor: "-webkit-grabbing",
-        webkitTransition: `all 0ms ${this.props.easing}`,
-        transition: `all 0ms ${this.props.easing}`,
-        [transformProperty]: `translate3d(${(this.currentSlide *
-          (this.selectorWidth / this.perPage) +
-          (this.drag.start - this.drag.end)) *
-          -1}px, 0, 0)`
-      });
+
+    if (!this.state.dragging) {
+      return;
     }
+
+    const point = {
+      x: e.pageX,
+      y: e.pageY
+    };
+
+    this.setState({
+      endPoint: point
+    });
+  };
+
+  handleMouseUp = e => {
+    e.stopPropagation();
+
+    const current = this.findCurrentSlide(
+      this.state.startPoint,
+      this.state.endPoint
+    );
+    //this.updateAfterDrag(this.state.startPoint, this.state.endPoint);
+
+    this.setState({
+      current,
+      dragging: false
+    });
+  };
+
+  handleMouseLeave = e => {
+    if (!this.state.dragging) {
+      return;
+    }
+
+    const endPoint = {
+      x: e.pageX,
+      y: e.pageY
+    };
+
+    const { startPoint } = this.state;
+
+    const current = this.findCurrentSlide(startPoint, endPoint);
+
+    //this.updateAfterDrag(startPoint, endPoint);
+
+    this.setState({
+      current,
+      dragging: false
+    });
   };
 }
 
