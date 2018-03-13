@@ -13,7 +13,6 @@ pre {
 }
 
 .App-intro__slider {
-  max-width: 600px;
-  height: 350px;
+  max-width: 800px;
   margin: 0 auto;
 }
