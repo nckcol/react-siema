@@ -48,9 +48,9 @@ class Frame extends Component {
     const { width, current, perPage } = this.props;
 
     const offset = current * (width / perPage);
-    const movement = dragging ? -endPoint.x + startPoint.x : 0;
+    const movement = dragging ? startPoint.x - endPoint.x : 0;
 
-    return `translate3d(-${Math.round(offset + movement)}px, 0, 0)`;
+    return `translate3d(${-Math.round(offset + movement)}px, 0, 0)`;
   }
 
   getStyles() {
@@ -95,28 +95,42 @@ class Frame extends Component {
   }
 
   findCurrentSlide(startPoint, endPoint) {
-    const { slidesCount, perPage, current, width } = this.props;
-    const slideAfter = 0.2;
-    const maxSlide = slidesCount - perPage;
     const movement = endPoint.x - startPoint.x;
-    const slideNumber = current - movement / (width / perPage);
-    let posibbleSlide = Math.trunc(slideNumber);
-    const fraction = slideNumber - posibbleSlide;
+    const { current } = this.props;
 
-    let closeness = fraction;
-    if (movement > 0) {
-      closeness = 1 - fraction;
+    const { perPage, width } = this.props;
+
+    const offset = this.getSlideOffsetWithSnap(movement, perPage / width);
+
+    return this.filterSlideNumber(current + offset);
+  }
+
+  getSlideOffsetWithSnap(movement, slideRatio) {
+    const maxSnap = 0.2;
+    const LEFT = -1;
+    const RIGHT = 1;
+
+    const direction = Math.sign(movement);
+
+    const offset = -movement * slideRatio;
+    const wholeOffset = Math.floor(offset);
+
+    const snapCloseness = offset - wholeOffset;
+
+    if (
+      (direction === LEFT && snapCloseness > maxSnap) ||
+      (direction === RIGHT && snapCloseness > 1 - maxSnap)
+    ) {
+      return wholeOffset + 1;
     }
 
-    if (closeness > slideAfter) {
-      posibbleSlide += 1;
-    }
+    return wholeOffset;
+  }
 
-    const currentSlide = Math.min(Math.max(posibbleSlide, 0), maxSlide);
-
-    console.log(currentSlide);
-
-    return currentSlide;
+  filterSlideNumber(slide) {
+    const { slidesCount, perPage } = this.props;
+    const maxSlide = slidesCount - perPage;
+    return Math.min(Math.max(slide, 0), maxSlide);
   }
 
   handleTouchStart = e => {

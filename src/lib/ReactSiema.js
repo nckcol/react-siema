@@ -47,10 +47,7 @@ class ReactSiema extends Component {
     const slideWidth = 100 / slidesCount;
 
     return (
-      <div
-        ref={this.handleSelectorRef}
-        // style={{ overflow: "hidden" }}
-      >
+      <div ref={this.handleSelectorRef} style={{ overflow: "hidden" }}>
         <Frame
           slidesCount={slidesCount}
           width={width}
