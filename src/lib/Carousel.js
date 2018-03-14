@@ -4,7 +4,7 @@ import debounce from "./utils/debounce";
 import Frame from "./Frame";
 import Slide from "./Slide";
 
-class ReactSiema extends Component {
+class Carousel extends Component {
   static propTypes = {
     resizeDebounce: PropTypes.number,
     duration: PropTypes.number,
@@ -83,12 +83,54 @@ class ReactSiema extends Component {
     window.removeEventListener(this.handleResize);
   }
 
-  handleFrameChange = data => {
-    const slidesCount = Children.count(this.props.children);
-    const currentSlide = Math.min(Math.max(data.current, 0), slidesCount - 1);
+  prev() {
+    const childrenCount = Children.count(this.props.children);
 
+    this.setState(state => {
+      if (state.current === 0 && this.props.loop) {
+        return {
+          current: childrenCount - this.perPage
+        };
+      }
+
+      return {
+        current: Math.max(state.current - 1, 0)
+      };
+    });
+
+    this.props.onChange.call(this);
+  }
+
+  next() {
+    const childrenCount = Children.count(this.props.children);
+
+    this.setState(state => {
+      if (state.current === childrenCount - this.perPage && this.props.loop) {
+        return {
+          current: 0
+        };
+      }
+
+      return {
+        current: Math.min(state.current + 1, childrenCount - this.perPage)
+      };
+    });
+    this.props.onChange.call(this);
+  }
+
+  goTo(index) {
+    const childrenCount = Children.count(this.props.children);
+    const currentSlide = Math.min(Math.max(index, 0), childrenCount - 1);
     this.setState({
       current: currentSlide
+    });
+    this.props.onChange.call(this);
+  }
+
+  handleFrameChange = data => {
+    console.log(data.current);
+    this.setState({
+      current: data.current
     });
   };
 
@@ -109,4 +151,4 @@ class ReactSiema extends Component {
   }
 }
 
-export default ReactSiema;
+export default Carousel;
