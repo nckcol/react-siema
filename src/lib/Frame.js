@@ -102,7 +102,7 @@ class Frame extends Component {
 
     const offset = this.getSlideOffsetWithSnap(movement, perPage / width);
 
-    return this.filterSlideNumber(current + offset);
+    return current + offset;
   }
 
   getSlideOffsetWithSnap(movement, slideRatio) {
@@ -125,12 +125,6 @@ class Frame extends Component {
     }
 
     return wholeOffset;
-  }
-
-  filterSlideNumber(slide) {
-    const { slidesCount, perPage } = this.props;
-    const maxSlide = slidesCount - perPage;
-    return Math.min(Math.max(slide, 0), maxSlide);
   }
 
   handleTouchStart = e => {
