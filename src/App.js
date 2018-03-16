@@ -29,7 +29,11 @@ class App extends Component {
             <a href="https://pawelgrzybek.com/siema/">Siema</a>.
           </h4>
           <div className="App-intro__slider">
-            <ReactSiema ref={siema => (this.siema = siema)} perPage={3}>
+            <ReactSiema
+              ref={siema => (this.siema = siema)}
+              perPage={3}
+              pagination={true}
+            >
               {this.state.slides.map((slide, index) => (
                 <div key={index}>{slide}</div>
               ))}

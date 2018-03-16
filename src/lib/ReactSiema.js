@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import debounce from "./utils/debounce";
 import Frame from "./Frame";
 import Slide from "./Slide";
+import Pagination from "./Pagination";
 
 class ReactSiema extends Component {
   static propTypes = {
@@ -19,7 +20,9 @@ class ReactSiema extends Component {
       PropTypes.arrayOf(PropTypes.element)
     ]),
     onInit: PropTypes.func,
-    onChange: PropTypes.func
+    onChange: PropTypes.func,
+    pagination: PropTypes.bool,
+    renderPage: PropTypes.func
   };
 
   static defaultProps = {
@@ -32,7 +35,9 @@ class ReactSiema extends Component {
     threshold: 20,
     loop: false,
     onInit: () => {},
-    onChange: () => {}
+    onChange: () => {},
+    pagination: false,
+    page: <button />
   };
 
   state = {
@@ -41,7 +46,8 @@ class ReactSiema extends Component {
   };
 
   render() {
-    const { children, ...rest } = this.props;
+    const { children, pagination, page, ...rest } = this.props;
+    const { perPage } = this.props;
     const { width, current } = this.state;
     const slidesCount = Children.count(children);
     const slideWidth = 100 / slidesCount;
@@ -59,6 +65,14 @@ class ReactSiema extends Component {
             <Slide key={index} child={child} width={slideWidth} />
           ))}
         </Frame>
+        {pagination && (
+          <Pagination
+            page={page}
+            current={current}
+            count={slidesCount - perPage + 1}
+            pageChange={this.handlePageChange}
+          />
+        )}
       </div>
     );
   }
@@ -81,11 +95,14 @@ class ReactSiema extends Component {
   }
 
   handleFrameChange = data => {
-    const slidesCount = Children.count(this.props.children);
-    const currentSlide = Math.min(Math.max(data.current, 0), slidesCount - 1);
-
     this.setState({
-      current: currentSlide
+      current: this.normalizeCurrent(data.current)
+    });
+  };
+
+  handlePageChange = (e, page) => {
+    this.setState({
+      current: this.normalizeCurrent(page)
     });
   };
 
@@ -103,6 +120,12 @@ class ReactSiema extends Component {
     this.setState({
       width: this.selector.getBoundingClientRect().width
     });
+  }
+
+  normalizeCurrent(slide) {
+    const { perPage } = this.props;
+    const slidesCount = Children.count(this.props.children);
+    return Math.min(Math.max(slide, 0), slidesCount - perPage);
   }
 }
 
